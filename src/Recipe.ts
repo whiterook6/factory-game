@@ -17,4 +17,11 @@ export class Recipe {
     this.outputs = new Map<string, number>();
     Recipe.allRecipes.set(this.id, this);
   }
+
+  public toString(){
+    // print the recipe name, the ingredients, and the outputs, and the time it takes to craft
+    const ingredientNames: string[] = [...this.ingredients.entries().map(([name]) => name)];
+    const outputNames: string[] = [...this.outputs.entries().map(([name]) => name)];
+    return `${this.name}: ${ingredientNames.join(", ")} -> ${this.craftTime.toFixed(1)}s -> ${outputNames.join(", ")}`;
+  }
 };

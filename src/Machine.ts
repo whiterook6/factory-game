@@ -1,3 +1,4 @@
+import ansi from "ansi";
 import { generateID } from "./ids";
 import { Recipe } from "./Recipe";
 
@@ -6,22 +7,26 @@ const MAX_BUFFER_FOR_ALL_INGREDIENTS = 100;
 export class Machine {
   static allMachines: Map<number, Machine> = new Map<number, Machine>();
 
-  id: number;
-  recipeID: number;
-  progress: number;
-  crafting: boolean;
-  crafts: number;
   buffers: Map<string, number>;
+  crafting: boolean;
+  craftingSpeed: number;
+  crafts: number;
+  id: number;
+  name: string;
   outputs: Map<string, number>;
+  progress: number;
+  recipeID: number;
 
-  constructor(recipe: Recipe){
-    this.id = generateID();
-    this.recipeID = recipe.id;
-    this.progress = 0;
-    this.crafting = false;
-    this.crafts = 0;
+  constructor(name: string, recipe: Recipe){
     this.buffers = new Map<string, number>();
+    this.crafting = false;
+    this.craftingSpeed = Math.random() * 0.1 + 0.95;
+    this.crafts = 0;
+    this.id = generateID();
+    this.name = name;
     this.outputs = new Map<string, number>();
+    this.progress = 0;
+    this.recipeID = recipe.id;
     Machine.allMachines.set(this.id, this);
   }
 
@@ -150,7 +155,7 @@ export class Machine {
     if (this.crafting){
       this.progress += dt;
 
-      if (this.progress >= recipe.craftTime){
+      if (this.progress >= recipe.craftTime * this.craftingSpeed){
         this.progress = 0;
         this.crafts++;
         this.crafting = false;
@@ -159,5 +164,40 @@ export class Machine {
         });
       }
     }
+  }
+
+  public printState(cursor: ansi.Cursor): ansi.Cursor {
+    // start with black background and machine name
+    // slowly replace the background with the progress bar as it fills up
+    // when it's crafting, drain the progress bar, different color
+    
+    const recipe = Recipe.allRecipes.get(this.recipeID);
+    const label = this.name;
+    const labelLength = label.length;
+    if (this.crafting){
+      const remaining = Math.round((1 - ((this.progress * this.craftingSpeed) / recipe.craftTime)) * labelLength);
+      const nameStart = label.substring(0, remaining);
+      const nameEnd = label.substring(remaining);
+      cursor.white().bg.red().write(nameStart).bg.black().write(nameEnd);
+    } else if (recipe){
+
+      const ingredientNames = [...recipe.ingredients.keys()];
+      const requiredIngredientsCount = ingredientNames.reduce((acc, key) => {
+        const amount = recipe.ingredients.get(key)!;
+        return acc + amount
+      }, 0);
+      const availableIngredientsCount = ingredientNames.reduce((acc, key) => {
+        const amount = this.buffers.get(key) || 0;
+        return acc + amount
+      }, 0);
+      const progress = Math.round(Math.min(1, availableIngredientsCount / requiredIngredientsCount) * labelLength);
+      const nameStart = label.substring(0, progress);
+      const nameEnd = label.substring(progress);
+      cursor.white().bg.blue().write(nameStart).bg.black().write(nameEnd);
+    } else {
+      cursor.white().bg.black().write(label);
+    }
+
+    return cursor;
   }
 }

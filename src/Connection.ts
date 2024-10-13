@@ -1,3 +1,4 @@
+import ansi from "ansi";
 import { generateID } from "./ids";
 import { Machine } from "./Machine";
 
@@ -12,6 +13,7 @@ export class Connection {
   maxFlowRate: number;
   sourceMachineIDs: number[] = [];
   destinationMachineIDs: number[] = [];
+  lastFlow: number = 0;
 
   constructor(ingredientName: string, maxFlowRate: number = 1){
     this.id = generateID();
@@ -50,6 +52,7 @@ export class Connection {
    * or runs out of input.
    */
   public update(dt: number): void {
+    this.lastFlow = 0;
     if (this.sourceMachineIDs.length === 0 || this.destinationMachineIDs.length === 0){
       return;
     }
@@ -76,6 +79,8 @@ export class Connection {
     if (totalFlow <= 0){
       return;
     }
+
+    this.lastFlow = totalFlow / dt;
 
     // reduce all source machines, draining the least full first then the remaining until all output is consumed
     let remainingCapacity = totalFlow;
@@ -109,5 +114,15 @@ export class Connection {
         machine.addInput(this.ingredientName, averageTransferAmount);
       }
     });
+  }
+
+  public printState(cursor: ansi.Cursor): ansi.Cursor {
+    const label = "-->";
+    const labelLength = label.length;
+    const flowIndicatorWidth = Math.round((this.lastFlow / this.maxFlowRate) * labelLength);
+
+    cursor.bg.green().write(label.slice(0, flowIndicatorWidth));
+    cursor.bg.black().write(label.slice(flowIndicatorWidth));
+    return cursor;
   }
 }
