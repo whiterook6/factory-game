@@ -1,6 +1,7 @@
 import ansi from "ansi";
 import { generateID } from "./ids";
 import { Machine } from "./Machine";
+import { Framebuffer, RGB } from "./Framebuffer";
 
 export class Connection {
   static allConnections: Map<number, Connection> = new Map<number, Connection>();
@@ -116,13 +117,19 @@ export class Connection {
     });
   }
 
-  public printState(cursor: ansi.Cursor): ansi.Cursor {
+  public render(framebuffer: Framebuffer, x: number, y: number): void {
     const label = "-->";
     const labelLength = label.length;
     const flowIndicatorWidth = Math.round((this.lastFlow / this.maxFlowRate) * labelLength);
 
-    cursor.bg.green().write(label.slice(0, flowIndicatorWidth));
-    cursor.bg.black().write(label.slice(flowIndicatorWidth));
-    return cursor;
+    framebuffer.write({viewX: x, viewY: y}, [
+      [label, 255, 255, 255],
+    ]);
+    
+    framebuffer.writeBackground({viewX: x, viewY: y}, [
+      [255, 255, 0],
+      [255, 255, 0],
+      [255, 255, 0],      
+    ]);
   }
 }

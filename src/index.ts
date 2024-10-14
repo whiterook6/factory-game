@@ -2,66 +2,72 @@ import { Recipe } from "./Recipe";
 import { Machine } from "./Machine";
 import { Connection } from "./Connection";
 import ansi from "ansi";
+import { Framebuffer, RGB, TOKEN } from "./Framebuffer";
 
-const mineIronOre = new Recipe("Mine iron ore", 1.666);
-mineIronOre.outputs.set("Iron ore", 1);
+const run = () => {
+  const cursor = ansi(process.stdout);
+  process.stdin.resume();
+  let interval;
 
-const smeltIronPlates = new Recipe("Smelt iron plates", 4.125);
-smeltIronPlates.ingredients.set("Iron ore", 2);
-smeltIronPlates.outputs.set("Iron plate", 1);
+  process.on('SIGINT', function() {
+    if (interval) {
+      clearInterval(interval);
+    }
+    cursor.goto(0, 0).show().reset().bg.reset().eraseLine();
+    process.exit();
+  });
+  cursor.hide();
 
-const makeIronGears = new Recipe("Make iron gears", 0.5);
-makeIronGears.ingredients.set("Iron plate", 2);
-makeIronGears.outputs.set("Iron gear", 1);
+  // get the size of the terminal
+  const terminalWidth = process.stdout.columns;
+  const terminalHeight = process.stdout.rows;
+  const framebuffer = new Framebuffer({viewHeight: terminalHeight, viewWidth: terminalWidth});
 
-const miners = Array.from({ length: 2 }, () => new Machine("Miner", mineIronOre));
-const furnaces = Array.from({ length: 6 }, () => new Machine("Furnace", smeltIronPlates));
-const assemblers = Array.from({ length: 4 }, () => new Machine("Assembler", makeIronGears));
+  const mineIronOre = new Recipe("Mine iron ore", 1.666);
+  mineIronOre.outputs.set("Iron ore", 1);
 
-const minerToFurnaceConnection = new Connection("Iron ore", 1);
-miners.forEach(miner => minerToFurnaceConnection.addSource(miner));
-furnaces.forEach(furnace => minerToFurnaceConnection.addDestination(furnace));
+  const smeltIronPlates = new Recipe("Smelt iron plates", 4.125);
+  smeltIronPlates.ingredients.set("Iron ore", 2);
+  smeltIronPlates.outputs.set("Iron plate", 1);
 
-const furnaceToAssemblerConnection = new Connection("Iron plate", 3);
-furnaces.forEach(furnace => furnaceToAssemblerConnection.addSource(furnace));
-assemblers.forEach(assembler => furnaceToAssemblerConnection.addDestination(assembler));
+  const makeIronGears = new Recipe("Make iron gears", 0.5);
+  makeIronGears.ingredients.set("Iron plate", 2);
+  makeIronGears.outputs.set("Iron gear", 1);
 
-const cursor = ansi(process.stdout);
-setInterval(() => {
-  const dt = 60 / 1000;
-  for (const miner of miners){
-    miner.update(dt);
-  }
-  for (const furnace of furnaces){
-    furnace.update(dt);
-  }
-  for (const assembler of assemblers){
-    assembler.update(dt);
-  }
-  minerToFurnaceConnection.update(dt);
-  furnaceToAssemblerConnection.update(dt);
+  const miners = Array.from({ length: 2 }, () => new Machine("Miner", mineIronOre));
+  const furnaces = Array.from({ length: 6 }, () => new Machine("Furnace", smeltIronPlates));
+  const assemblers = Array.from({ length: 4 }, () => new Machine("Assembler", makeIronGears));
 
-  // output:
-  cursor.buffer();
-  cursor.goto(1, 1).eraseLine();
+  const minerToFurnaceConnection = new Connection("Iron ore", 1);
+  miners.forEach(miner => minerToFurnaceConnection.addSource(miner));
+  furnaces.forEach(furnace => minerToFurnaceConnection.addDestination(furnace));
 
-  // miners
-  for (const miner of miners){
-    miner.printState(cursor).reset().write(" ");
-  }
-  cursor.reset();
-  minerToFurnaceConnection.printState(cursor).reset().write(" ");
+  const furnaceToAssemblerConnection = new Connection("Iron plate", 3);
+  furnaces.forEach(furnace => furnaceToAssemblerConnection.addSource(furnace));
+  assemblers.forEach(assembler => furnaceToAssemblerConnection.addDestination(assembler));
 
-  // furnaces
-  for (const furnace of furnaces){
-    furnace.printState(cursor).write(" ");
-  }
-  cursor.reset();
-  furnaceToAssemblerConnection.printState(cursor).reset().write(" ");
+  setInterval(() => {
+    const dt = 60 / 1000;
+    for (const miner of miners){
+      miner.update(dt);
+    }
+    for (const furnace of furnaces){
+      furnace.update(dt);
+    }
+    for (const assembler of assemblers){
+      assembler.update(dt);
+    }
+    minerToFurnaceConnection.update(dt);
+    furnaceToAssemblerConnection.update(dt);
 
-  // assemblers
-  for (const assembler of assemblers){
-    assembler.printState(cursor).reset().write(" ");
-  }
-  cursor.flush();
-}, 1000 / 60)
+    framebuffer.clear();
+    framebuffer.write({viewX: 0, viewY: 0}, [["Miners:", 255, 255, 255]] as TOKEN[]);
+    miners.forEach((miner, index) => {
+      framebuffer.write({viewX: 1, viewY: index + 1}, [[miner.name, 255, 255, 255]] as TOKEN[]);
+    });
+    minerToFurnaceConnection.render(framebuffer, 10, 1);
+    framebuffer.render(cursor);
+  }, 1000 / 60);
+};
+
+run();
