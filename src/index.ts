@@ -61,11 +61,17 @@ const run = () => {
     furnaceToAssemblerConnection.update(dt);
 
     framebuffer.clear();
-    framebuffer.write({viewX: 0, viewY: 0}, [["Miners:", 255, 255, 255]] as TOKEN[]);
+    framebuffer.write({viewX: 0, viewY: 0}, [["Miners:", 255, 255, 255, 0, 0, 0]] as TOKEN[]);
     miners.forEach((miner, index) => {
-      framebuffer.write({viewX: 1, viewY: index + 1}, [[miner.name, 255, 255, 255]] as TOKEN[]);
+      miner.render(framebuffer, {
+        viewX: 0,
+        viewY: index + 1
+      });
     });
-    minerToFurnaceConnection.render(framebuffer, 10, 1);
+    minerToFurnaceConnection.render(framebuffer, {
+      viewX: 1,
+      viewY: 10
+    });
     framebuffer.render(cursor);
   }, 1000 / 60);
 };

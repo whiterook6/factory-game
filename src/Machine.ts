@@ -1,6 +1,7 @@
 import ansi from "ansi";
 import { generateID } from "./ids";
 import { Recipe } from "./Recipe";
+import { Framebuffer, RGB, TOKEN, ViewXY } from "./Framebuffer";
 
 const MAX_BUFFER_FOR_ALL_INGREDIENTS = 100;
 
@@ -166,38 +167,100 @@ export class Machine {
     }
   }
 
-  public printState(cursor: ansi.Cursor): ansi.Cursor {
-    // start with black background and machine name
-    // slowly replace the background with the progress bar as it fills up
-    // when it's crafting, drain the progress bar, different color
+  // public printState(cursor: ansi.Cursor): ansi.Cursor {
+  //   // start with black background and machine name
+  //   // slowly replace the background with the progress bar as it fills up
+  //   // when it's crafting, drain the progress bar, different color
     
-    const recipe = Recipe.allRecipes.get(this.recipeID);
+  //   const recipe = Recipe.allRecipes.get(this.recipeID);
+  //   const label = this.name;
+  //   const labelLength = label.length;
+  //   if (this.crafting){
+  //     const remaining = Math.round((1 - ((this.progress * this.craftingSpeed) / recipe.craftTime)) * labelLength);
+  //     const nameStart = label.substring(0, remaining);
+  //     const nameEnd = label.substring(remaining);
+  //     cursor.white().bg.red().write(nameStart).bg.black().write(nameEnd);
+  //   } else if (recipe){
+
+  //     const ingredientNames = [...recipe.ingredients.keys()];
+  //     const requiredIngredientsCount = ingredientNames.reduce((acc, key) => {
+  //       const amount = recipe.ingredients.get(key)!;
+  //       return acc + amount
+  //     }, 0);
+  //     const availableIngredientsCount = ingredientNames.reduce((acc, key) => {
+  //       const amount = this.buffers.get(key) || 0;
+  //       return acc + amount
+  //     }, 0);
+  //     const progress = Math.round(Math.min(1, availableIngredientsCount / requiredIngredientsCount) * labelLength);
+  //     const nameStart = label.substring(0, progress);
+  //     const nameEnd = label.substring(progress);
+  //     cursor.white().bg.blue().write(nameStart).bg.black().write(nameEnd);
+  //   } else {
+  //     cursor.white().bg.black().write(label);
+  //   }
+
+  //   return cursor;
+  // }
+  public render = (framebuffer: Framebuffer, viewXY: ViewXY): void => {
+    const fgColor: [number, number, number] = [255, 255, 255];
     const label = this.name;
     const labelLength = label.length;
-    if (this.crafting){
-      const remaining = Math.round((1 - ((this.progress * this.craftingSpeed) / recipe.craftTime)) * labelLength);
-      const nameStart = label.substring(0, remaining);
-      const nameEnd = label.substring(remaining);
-      cursor.white().bg.red().write(nameStart).bg.black().write(nameEnd);
-    } else if (recipe){
-
-      const ingredientNames = [...recipe.ingredients.keys()];
-      const requiredIngredientsCount = ingredientNames.reduce((acc, key) => {
-        const amount = recipe.ingredients.get(key)!;
-        return acc + amount
-      }, 0);
-      const availableIngredientsCount = ingredientNames.reduce((acc, key) => {
-        const amount = this.buffers.get(key) || 0;
-        return acc + amount
-      }, 0);
-      const progress = Math.round(Math.min(1, availableIngredientsCount / requiredIngredientsCount) * labelLength);
-      const nameStart = label.substring(0, progress);
-      const nameEnd = label.substring(progress);
-      cursor.white().bg.blue().write(nameStart).bg.black().write(nameEnd);
-    } else {
-      cursor.white().bg.black().write(label);
+    const recipe = Recipe.allRecipes.get(this.recipeID);
+    if (!recipe){
+      framebuffer.write(viewXY, [[label, ...fgColor, 0, 0, 0]] as TOKEN[]);
+      return;
     }
 
-    return cursor;
+    if (this.crafting){
+      // fill from left to right as it crafts
+      // replacing red background from when it was gathering ingredients
+      const leftBGColor = [0, 0, 255];
+      const rightBGColor = [255, 0, 0];
+      const fillLeft = Math.round(this.progress / recipe.craftTime) * labelLength;
+      const leftText = label.substring(0, fillLeft);
+      const rightText = label.substring(fillLeft);
+      return framebuffer.write(viewXY, [
+        [leftText, ...fgColor, ...leftBGColor],
+        [rightText, ...fgColor, ...rightBGColor]
+      ] as TOKEN[]);
+    }
+
+    // if there's output to drain, drain from left to right
+    // replacing the blue background with yellow
+    const outputsCount = [...this.outputs.values()].reduce((acc, amount) => acc + amount, 0);
+    if (outputsCount > 0){
+      const maxOutputsCount = [...recipe.outputs.values()].reduce((acc, amount) => acc + amount, 0);
+      const fill = Math.round(outputsCount / maxOutputsCount) * labelLength;
+      const leftText = label.substring(0, fill);
+      const rightText = label.substring(fill);
+      const leftBGColor = [0, 0, 255];
+      const rightBGColor = [255, 255, 0];
+      return framebuffer.write(viewXY, [
+        [leftText, ...fgColor, ...leftBGColor],
+        [rightText, ...fgColor, ...rightBGColor]
+      ] as TOKEN[]);
+    }
+
+    const bufferedIngredientsCount = [...recipe.ingredients.keys()].reduce((acc, key) => {
+      const amount = this.buffers.get(key) || 0;
+      return acc + amount;
+    }, 0);
+    if (bufferedIngredientsCount > 0){
+      // fill from left to right as it gathers ingredients
+      // replacing the black background with blue
+      const requiredIngredientsCount = [...recipe.ingredients.values()].reduce((acc, amount) => acc + amount, 0);
+      const fill = Math.round(bufferedIngredientsCount / requiredIngredientsCount) * labelLength;
+      const leftText = label.substring(0, fill);
+      const rightText = label.substring(fill);
+      const leftBGColor = [0, 0, 255];
+      const rightBGColor = [0, 0, 0];
+      return framebuffer.write(viewXY, [
+        [leftText, ...fgColor, ...leftBGColor],
+        [rightText, ...fgColor, ...rightBGColor]
+      ] as TOKEN[]);
+    }
+
+    // if there's nothing to do, just render the name
+    framebuffer.write(viewXY, [[label, ...fgColor, 0, 0, 0]] as TOKEN[]);
   }
 }

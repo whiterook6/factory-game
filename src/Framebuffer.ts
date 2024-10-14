@@ -9,13 +9,22 @@ export type TOKEN = [
   /** The text to write */
   string,
   
-  /** The text color red*/
+  /** The text color red */
   number,
   
-  /** The text color green*/
+  /** The text color green */
   number,
   
-  /** The text color blue*/
+  /** The text color blue */
+  number,
+
+  /** The background color red */
+  number,
+
+  /** The background color green */
+  number,
+
+  /** The background color blue */
   number
 ];
 
@@ -106,32 +115,18 @@ export class Framebuffer {
     }
 
     const fgRow: RGB[] = tokens.flatMap((token) => {
-      const [text, ...fg] = token;
-      return Array(text.length).fill(fg);
+      const [text, fgRed, fgGreen, fgBlue] = token;
+      return Array(text.length).fill([fgRed, fgGreen, fgBlue]);
+    });
+    const bgRow: RGB[] = tokens.flatMap((token) => {
+      const [text, fgRed, fgGreen, fgBlue, bgRed, bgGreen, bgBlue] = token;
+      return Array(text.length).fill([bgRed, bgGreen, bgBlue]);
     });
 
     this.buffer[viewY] = overwriteString(this.buffer[viewY], row, viewX);
     this.fgBuffer[viewY] = overwriteArray<RGB>(this.fgBuffer[viewY], fgRow, viewX);
-  };
-
-  public writeBackground = (viewXY: ViewXY, colors: RGB[]) => {
-    const viewX = Math.floor(viewXY.viewX);
-    const viewY = Math.floor(viewXY.viewY);
-
-    // if we're outside the view, skip
-    const rowCount = this.buffer.length;
-    if (viewY < 0 || viewY >= rowCount) {
-      return;
-    }
-
-    if (viewX + colors.length < 0 || viewX >= this.buffer[0].length) {
-      return;
-    }
-
-    const bgRow = Array(colors.length).fill(colors);
     this.bgBuffer[viewY] = overwriteArray<RGB>(this.bgBuffer[viewY], bgRow, viewX);
-    return;
-  }
+  };
 
   public getWidth = () => this.width;
   public getHeight = () => this.height;

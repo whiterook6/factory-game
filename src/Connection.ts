@@ -1,7 +1,7 @@
 import ansi from "ansi";
 import { generateID } from "./ids";
 import { Machine } from "./Machine";
-import { Framebuffer, RGB } from "./Framebuffer";
+import { Framebuffer, RGB, TOKEN, ViewXY } from "./Framebuffer";
 
 export class Connection {
   static allConnections: Map<number, Connection> = new Map<number, Connection>();
@@ -117,19 +117,19 @@ export class Connection {
     });
   }
 
-  public render(framebuffer: Framebuffer, x: number, y: number): void {
+  public render(framebuffer: Framebuffer, viewXY: ViewXY): void {
     const label = "-->";
     const labelLength = label.length;
     const flowIndicatorWidth = Math.round((this.lastFlow / this.maxFlowRate) * labelLength);
+    const greenLabel = label.slice(0, flowIndicatorWidth);
+    const blackLabel = label.slice(flowIndicatorWidth);
 
-    framebuffer.write({viewX: x, viewY: y}, [
-      [label, 255, 255, 255],
-    ]);
-    
-    framebuffer.writeBackground({viewX: x, viewY: y}, [
-      [255, 255, 0],
-      [255, 255, 0],
-      [255, 255, 0],      
-    ]);
+    const fgColor: RGB = [255, 255, 255];
+    const green: RGB = [0, 255, 0];
+    const black: RGB = [0, 0, 0];
+    framebuffer.write(viewXY, [
+      [greenLabel, ...fgColor, ...green],
+      [blackLabel, ...fgColor, ...black]
+    ] as TOKEN[]);
   }
 }
