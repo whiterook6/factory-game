@@ -69,8 +69,8 @@ const run = () => {
       });
     });
     minerToFurnaceConnection.render(framebuffer, {
-      viewX: 1,
-      viewY: 10
+      viewX: 7,
+      viewY: 1
     });
     framebuffer.render(cursor);
   }, 1000 / 60);

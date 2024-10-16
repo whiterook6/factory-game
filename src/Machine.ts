@@ -17,6 +17,7 @@ export class Machine {
   outputs: Map<string, number>;
   progress: number;
   recipeID: number;
+  state: "filling" | "crafting" | "draining" | "full";
 
   constructor(name: string, recipe: Recipe){
     this.buffers = new Map<string, number>();
@@ -31,14 +32,31 @@ export class Machine {
     Machine.allMachines.set(this.id, this);
   }
 
-  public addInput = (name: string, amount: number): void => {
-    if (this.buffers.has(name)){
-      this.buffers.set(name, this.buffers.get(name)! + amount);
+  /** 
+   * @returns how much was used up
+   */
+  public addInput = (name: string, amount: number): number => {
+    const recipe = Recipe.allRecipes.get(this.recipeID);
+    
+    if (!recipe){ // if there's no recipe, don't add anything
+      return 0;
+    } else if (!recipe.ingredients.has(name)){ // if the recipe doesn't use this ingredient, don't add it
+      return 0;
+    }
+
+    const availableCapacity = this.getAvailableInputCapacity(name);
+    if (availableCapacity < amount){ // if there's not enough space, fill it up and return the amount that was used
+      this.buffers.set(name, MAX_BUFFER_FOR_ALL_INGREDIENTS);
+      return availableCapacity;
     } else {
-      this.buffers.set(name, amount);
+      this.buffers.set(name, this.buffers.get(name)! + amount);
+      return amount;
     }
   }
 
+  /**
+   * @returns how much was used up
+   */
   public fillInput = (name: string): number => {
     const capacity = this.getAvailableInputCapacity(name);
     this.buffers.set(name, MAX_BUFFER_FOR_ALL_INGREDIENTS);
@@ -111,6 +129,22 @@ export class Machine {
     }
   }
 
+  /**
+   * @returns percentage complete of crafting, between 0 and 1.
+   */
+  public getCraftingProgress = (): number => {
+    if (!this.crafting){
+      return 0;
+    }
+
+    const recipe = Recipe.allRecipes.get(this.recipeID)!;
+    if (!recipe){
+      return 0;
+    }
+
+    return this.progress / (recipe.craftTime * this.craftingSpeed);
+  }
+
   public canCraft = (): boolean => {
     if (this.crafting){
       return false;
@@ -163,44 +197,17 @@ export class Machine {
         recipe.outputs.forEach((amount, id) => {
           this.addOutput(id, amount);
         });
+        this.state = "draining";
+      } else {
+        this.state = "crafting";
       }
+    } else if ([...this.outputs.values()].some(amount => amount > 0)){
+      this.state = "draining";
+    } else {
+      this.state = "filling";
     }
   }
 
-  // public printState(cursor: ansi.Cursor): ansi.Cursor {
-  //   // start with black background and machine name
-  //   // slowly replace the background with the progress bar as it fills up
-  //   // when it's crafting, drain the progress bar, different color
-    
-  //   const recipe = Recipe.allRecipes.get(this.recipeID);
-  //   const label = this.name;
-  //   const labelLength = label.length;
-  //   if (this.crafting){
-  //     const remaining = Math.round((1 - ((this.progress * this.craftingSpeed) / recipe.craftTime)) * labelLength);
-  //     const nameStart = label.substring(0, remaining);
-  //     const nameEnd = label.substring(remaining);
-  //     cursor.white().bg.red().write(nameStart).bg.black().write(nameEnd);
-  //   } else if (recipe){
-
-  //     const ingredientNames = [...recipe.ingredients.keys()];
-  //     const requiredIngredientsCount = ingredientNames.reduce((acc, key) => {
-  //       const amount = recipe.ingredients.get(key)!;
-  //       return acc + amount
-  //     }, 0);
-  //     const availableIngredientsCount = ingredientNames.reduce((acc, key) => {
-  //       const amount = this.buffers.get(key) || 0;
-  //       return acc + amount
-  //     }, 0);
-  //     const progress = Math.round(Math.min(1, availableIngredientsCount / requiredIngredientsCount) * labelLength);
-  //     const nameStart = label.substring(0, progress);
-  //     const nameEnd = label.substring(progress);
-  //     cursor.white().bg.blue().write(nameStart).bg.black().write(nameEnd);
-  //   } else {
-  //     cursor.white().bg.black().write(label);
-  //   }
-
-  //   return cursor;
-  // }
   public render = (framebuffer: Framebuffer, viewXY: ViewXY): void => {
     const fgColor: [number, number, number] = [255, 255, 255];
     const label = this.name;
@@ -211,56 +218,48 @@ export class Machine {
       return;
     }
 
-    if (this.crafting){
-      // fill from left to right as it crafts
-      // replacing red background from when it was gathering ingredients
-      const leftBGColor = [0, 0, 255];
-      const rightBGColor = [255, 0, 0];
-      const fillLeft = Math.round(this.progress / recipe.craftTime) * labelLength;
-      const leftText = label.substring(0, fillLeft);
-      const rightText = label.substring(fillLeft);
-      return framebuffer.write(viewXY, [
-        [leftText, ...fgColor, ...leftBGColor],
-        [rightText, ...fgColor, ...rightBGColor]
-      ] as TOKEN[]);
-    }
+    let progress: number;
+    let progressLabelWidth: number;
+    let leftLabel: string;
+    let rightLabel: string;
 
-    // if there's output to drain, drain from left to right
-    // replacing the blue background with yellow
-    const outputsCount = [...this.outputs.values()].reduce((acc, amount) => acc + amount, 0);
-    if (outputsCount > 0){
-      const maxOutputsCount = [...recipe.outputs.values()].reduce((acc, amount) => acc + amount, 0);
-      const fill = Math.round(outputsCount / maxOutputsCount) * labelLength;
-      const leftText = label.substring(0, fill);
-      const rightText = label.substring(fill);
-      const leftBGColor = [0, 0, 255];
-      const rightBGColor = [255, 255, 0];
-      return framebuffer.write(viewXY, [
-        [leftText, ...fgColor, ...leftBGColor],
-        [rightText, ...fgColor, ...rightBGColor]
-      ] as TOKEN[]);
-    }
+    switch (this.state){
+      case "crafting": // green background
+        progress = this.getCraftingProgress();
+        progressLabelWidth = Math.round(labelLength * progress);
+        leftLabel = label.substring(0, progressLabelWidth);
+        rightLabel = label.substring(progressLabelWidth);
 
-    const bufferedIngredientsCount = [...recipe.ingredients.keys()].reduce((acc, key) => {
-      const amount = this.buffers.get(key) || 0;
-      return acc + amount;
-    }, 0);
-    if (bufferedIngredientsCount > 0){
-      // fill from left to right as it gathers ingredients
-      // replacing the black background with blue
-      const requiredIngredientsCount = [...recipe.ingredients.values()].reduce((acc, amount) => acc + amount, 0);
-      const fill = Math.round(bufferedIngredientsCount / requiredIngredientsCount) * labelLength;
-      const leftText = label.substring(0, fill);
-      const rightText = label.substring(fill);
-      const leftBGColor = [0, 0, 255];
-      const rightBGColor = [0, 0, 0];
-      return framebuffer.write(viewXY, [
-        [leftText, ...fgColor, ...leftBGColor],
-        [rightText, ...fgColor, ...rightBGColor]
-      ] as TOKEN[]);
-    }
+        return framebuffer.write(viewXY, [
+          [leftLabel, ...fgColor, 0, 255, 0],
+          [rightLabel, ...fgColor, 0, 0, 0]
+        ] as TOKEN[]);
+      case "filling": // blue background
+        const bufferSize = [...this.buffers.values()].reduce((acc, val) => acc + val, 0);
+        const ingredientTotal = [...recipe.ingredients.values()].reduce((acc, val) => acc + val, 0);
+        progress = bufferSize / ingredientTotal;
+        progressLabelWidth = Math.round(labelLength * progress);
+        leftLabel = label.substring(0, progressLabelWidth);
+        rightLabel = label.substring(progressLabelWidth);
 
-    // if there's nothing to do, just render the name
-    framebuffer.write(viewXY, [[label, ...fgColor, 0, 0, 0]] as TOKEN[]);
-  }
-}
+        return framebuffer.write(viewXY, [
+          [leftLabel, ...fgColor, 0, 0, 255],
+          [rightLabel, ...fgColor, 0, 0, 0]
+        ] as TOKEN[]);
+      case "draining": // red background
+        const outputSize = [...this.outputs.values()].reduce((acc, val) => acc + val, 0);
+        const outputTotal = [...recipe.outputs.values()].reduce((acc, val) => acc + val, 0);
+        progress = outputSize / outputTotal;
+        progressLabelWidth = Math.round(labelLength * progress);
+        leftLabel = label.substring(0, progressLabelWidth);
+        rightLabel = label.substring(progressLabelWidth);
+
+        return framebuffer.write(viewXY, [
+          [leftLabel, ...fgColor, 255, 0, 0],
+          [rightLabel, ...fgColor, 0, 0, 0]
+        ] as TOKEN[]);
+      default:
+        return framebuffer.write(viewXY, [[label, ...fgColor, 0, 0, 0]] as TOKEN[]);
+    };
+  };
+};
