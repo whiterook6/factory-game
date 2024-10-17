@@ -3,6 +3,7 @@ import { Machine } from "./Machine";
 import { Connection } from "./Connection";
 import ansi from "ansi";
 import { Framebuffer, RGB, TOKEN } from "./Framebuffer";
+import { Cell, manhattanCost, Pathfinder } from "./Pathfinder";
 
 const run = () => {
   const cursor = ansi(process.stdout);
@@ -23,56 +24,107 @@ const run = () => {
   const terminalHeight = process.stdout.rows;
   const framebuffer = new Framebuffer({viewHeight: terminalHeight, viewWidth: terminalWidth});
 
-  const mineIronOre = new Recipe("Mine iron ore", 1.666);
-  mineIronOre.outputs.set("Iron ore", 1);
+  const source = {
+    x: 10,
+    y: 2,
+    width: 20,
+    height: 3,
+  };
+  // get the center of the right side of source
+  const sourceNode: Cell = [
+    source.x + source.width, Math.floor(source.y + source.height / 2),
+  ];
 
-  const smeltIronPlates = new Recipe("Smelt iron plates", 4.125);
-  smeltIronPlates.ingredients.set("Iron ore", 2);
-  smeltIronPlates.outputs.set("Iron plate", 1);
+  const destination = {
+    x: 20,
+    y: 8,
+    width: 20,
+    height: 3,
+  };
+  // get the middle of the left edge of the destination
+  const destinationNode: Cell = [
+    destination.x, Math.floor(destination.y + destination.height / 2),
+  ];
 
-  const makeIronGears = new Recipe("Make iron gears", 0.5);
-  makeIronGears.ingredients.set("Iron plate", 2);
-  makeIronGears.outputs.set("Iron gear", 1);
-
-  const miners = Array.from({ length: 2 }).map((_, i: number) => new Machine("Miner", mineIronOre, 1, i + 1));
-  const furnaces = Array.from({ length: 6 }).map((_, i: number) => new Machine("Furnace", smeltIronPlates, 11, i + 1));
-  // const assemblers = Array.from({ length: 4 }).map((_, i: number) => new Machine("Assembler", makeIronGears, 23, i + 1));
-
-  const minerToFurnaceConnection = new Connection("Iron ore", 1);
-  miners.forEach(miner => minerToFurnaceConnection.addSource(miner));
-  furnaces.forEach(furnace => minerToFurnaceConnection.addDestination(furnace));
-
-  // const furnaceToAssemblerConnection = new Connection("Iron plate", 3);
-  // furnaces.forEach(furnace => furnaceToAssemblerConnection.addSource(furnace));
-  // assemblers.forEach(assembler => furnaceToAssemblerConnection.addDestination(assembler));
+  const pathfinder = new Pathfinder();
+  const path = pathfinder.findPath(sourceNode, destinationNode, (from: Cell, to: Cell) => {
+    if (to[0] === destinationNode[0] && to[1] === destinationNode[1]){
+      return true;
+    }
+    for (const box of [source, destination]){
+      const left = box.x;
+      const right = box.x + box.width;
+      const top = box.y;
+      const bottom = box.y + box.height;
+      if (to[0] >= left && to[0] <= right && to[1] >= top && to[1] <= bottom){
+        return false;
+      }
+    }
+    return true;
+  }, manhattanCost);
 
   setInterval(() => {
     const dt = 60 / 1000;
-    for (const miner of miners){
-      miner.update(dt);
-    }
-    for (const furnace of furnaces){
-      furnace.update(dt);
-    }
-    // for (const assembler of assemblers){
-    //   assembler.update(dt);
-    // }
-    minerToFurnaceConnection.update(dt);
-    // furnaceToAssemblerConnection.update(dt);
+    
+
 
     framebuffer.clear();
-    framebuffer.write({viewX: 0, viewY: 0}, [["Miners:", 255, 255, 255, 0, 0, 0]] as TOKEN[]);
-    miners.forEach((miner) => miner.render(framebuffer));
-    furnaces.forEach((furnace) => furnace.render(framebuffer));
-    // assemblers.forEach((assembler) => assembler.render(framebuffer));
-    minerToFurnaceConnection.render(framebuffer, {
-      viewX: 7,
-      viewY: 1
-    });
-    // furnaceToAssemblerConnection.render(framebuffer, {
-    //   viewX: 19,
-    //   viewY: 1
-    // });
+    // draw a box for source
+    framebuffer.write({
+      viewX: source.x,
+      viewY: source.y
+    }, [
+      ["╔" + "═".repeat(source.width - 2) + "╗", 255, 255, 255, 0, 0, 0]
+    ] as TOKEN[]);
+    
+    for (let y = source.y + 1; y < source.y + source.height - 1; y++){
+      framebuffer.write({
+        viewX: source.x,
+        viewY: y
+      }, [
+        ["║" + " ".repeat(source.width - 2) + "║", 255, 255, 255, 0, 0, 0]
+      ]);
+    }
+    framebuffer.write({
+      viewX: source.x,
+      viewY: source.y + source.height - 1
+    }, [
+      ["╚" + "═".repeat(source.width - 2) + "╝", 255, 255, 255, 0, 0, 0],
+    ] as TOKEN[]);
+
+    // draw a box for destination
+    framebuffer.write({
+      viewX: destination.x,
+      viewY: destination.y
+    }, [
+      ["╔" + "═".repeat(destination.width - 2) + "╗", 255, 255, 255, 0, 0, 0]
+    ] as TOKEN[]);
+    
+    for (let y = destination.y + 1; y < destination.y + destination.height - 1; y++){
+      framebuffer.write({
+        viewX: destination.x,
+        viewY: y
+      }, [
+        ["║" + " ".repeat(destination.width - 2) + "║", 255, 255, 255, 0, 0, 0]
+      ]);
+    }
+    framebuffer.write({
+      viewX: destination.x,
+      viewY: destination.y + destination.height - 1
+    }, [
+      ["╚" + "═".repeat(destination.width - 2) + "╝", 255, 255, 255, 0, 0, 0],
+    ] as TOKEN[]);
+
+    // draw a * for each cell in the path
+    for (const cell of path){
+      framebuffer.write({
+        viewX: cell[0],
+        viewY: cell[1],
+      }, [
+        ["*", 255, 255, 255, 0, 0, 0],
+      ] as TOKEN[]);
+    }
+
     framebuffer.render(cursor);
   }, 1000 / 60);
 };

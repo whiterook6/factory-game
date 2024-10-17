@@ -124,6 +124,11 @@
   dependencies:
     "@types/node" "*"
 
+"@types/heap@^0.2.34":
+  version "0.2.34"
+  resolved "https://registry.yarnpkg.com/@types/heap/-/heap-0.2.34.tgz#93df5b8bfffc4aea33b4c06c12e9caa5b16eeeeb"
+  integrity sha512-x9gp0NZnQeFrgrb6O3Tq5KtvsuEhWbc2vlHfs4cDOKcHsanzI39lIGcPdND/MRyaKUbxNgKXfKGCQGnjjOWweQ==
+
 "@types/node@*":
   version "22.7.5"
   resolved "https://registry.yarnpkg.com/@types/node/-/node-22.7.5.tgz#cfde981727a7ab3611a481510b473ae54442b92b"
@@ -171,6 +176,11 @@ esbuild@^0.20.2:
     "@esbuild/win32-arm64" "0.20.2"
     "@esbuild/win32-ia32" "0.20.2"
     "@esbuild/win32-x64" "0.20.2"
+
+heap@^0.2.7:
+  version "0.2.7"
+  resolved "https://registry.yarnpkg.com/heap/-/heap-0.2.7.tgz#1e6adf711d3f27ce35a81fe3b7bd576c2260a8fc"
+  integrity sha512-2bsegYkkHO+h/9MGbn6KWcE45cHZgPANo5LXF7EvWdT0yT2EguSVO1nDgU5c8+ZOPwp2vMNa7YFsJhVcDR9Sdg==
 
 typescript@^5.4.5:
   version "5.5.4"

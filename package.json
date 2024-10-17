@@ -11,11 +11,13 @@
   "private": true,
   "devDependencies": {
     "@types/ansi": "^0.3.6",
+    "@types/heap": "^0.2.34",
     "@types/node": "^20.12.7",
     "esbuild": "^0.20.2",
     "typescript": "^5.4.5"
   },
   "dependencies": {
-    "ansi": "^0.3.1"
+    "ansi": "^0.3.1",
+    "heap": "^0.2.7"
   }
 }
