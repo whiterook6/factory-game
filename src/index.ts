@@ -36,15 +36,15 @@ const run = () => {
 
   const miners = Array.from({ length: 2 }).map((_, i: number) => new Machine("Miner", mineIronOre, 1, i + 1));
   const furnaces = Array.from({ length: 6 }).map((_, i: number) => new Machine("Furnace", smeltIronPlates, 11, i + 1));
-  const assemblers = Array.from({ length: 4 }).map((_, i: number) => new Machine("Assembler", makeIronGears, 23, i + 1));
+  // const assemblers = Array.from({ length: 4 }).map((_, i: number) => new Machine("Assembler", makeIronGears, 23, i + 1));
 
   const minerToFurnaceConnection = new Connection("Iron ore", 1);
   miners.forEach(miner => minerToFurnaceConnection.addSource(miner));
   furnaces.forEach(furnace => minerToFurnaceConnection.addDestination(furnace));
 
-  const furnaceToAssemblerConnection = new Connection("Iron plate", 3);
-  furnaces.forEach(furnace => furnaceToAssemblerConnection.addSource(furnace));
-  assemblers.forEach(assembler => furnaceToAssemblerConnection.addDestination(assembler));
+  // const furnaceToAssemblerConnection = new Connection("Iron plate", 3);
+  // furnaces.forEach(furnace => furnaceToAssemblerConnection.addSource(furnace));
+  // assemblers.forEach(assembler => furnaceToAssemblerConnection.addDestination(assembler));
 
   setInterval(() => {
     const dt = 60 / 1000;

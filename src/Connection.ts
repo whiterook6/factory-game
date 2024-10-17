@@ -64,6 +64,9 @@ export class Connection {
     })
       .filter(([_, availableOutput]) => availableOutput > 0) // we only care about machines with output
       .sort((a, b) => a[1] - b[1]); // sort by available output ascending
+    if (availableOutputByMachine.length === 0){
+      return;
+    }
     const totalAvailableOutput = availableOutputByMachine.reduce((acc, [_, availableOutput]) => acc + availableOutput, 0);
 
     const availableCapacityByMachine = this.destinationMachineIDs.map(id => {
@@ -73,10 +76,15 @@ export class Connection {
     })
       .filter(([_, availableCapacity]) => availableCapacity > 0) // we only care about machines with capacity
       .sort((a, b) => a[1] - b[1]); // sort by available capacity ascending
+    if (availableCapacityByMachine.length === 0){
+      debugger;
+      return;
+    }
     const totalAvailableCapacity = availableCapacityByMachine.reduce((acc, [_, availableCapacity]) => acc + availableCapacity, 0);
 
     const totalFlow = Math.min(this.maxFlowRate * dt, totalAvailableOutput, totalAvailableCapacity);
     if (totalFlow <= 0){
+      debugger;
       return;
     }
 

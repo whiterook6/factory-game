@@ -18,7 +18,9 @@ export class Machine extends Renderable {
   outputs: Map<string, number>;
   progress: number;
   recipeID: number;
-  state: "filling" | "crafting" | "draining" | "full";
+  state: "crafting" // is crafting
+    | "draining" // has output
+    | "filling"; // has input
 
   constructor(name: string, recipe: Recipe, x: number, y: number){
     super(x, y, name.length + 2, 1);
@@ -31,6 +33,7 @@ export class Machine extends Renderable {
     this.outputs = new Map<string, number>();
     this.progress = 0;
     this.recipeID = recipe.id;
+    this.state = "filling";
     Machine.allMachines.set(this.id, this);
   }
 
@@ -39,7 +42,6 @@ export class Machine extends Renderable {
    */
   public addInput = (name: string, amount: number): number => {
     const recipe = Recipe.allRecipes.get(this.recipeID);
-    
     if (!recipe){ // if there's no recipe, don't add anything
       return 0;
     } else if (!recipe.ingredients.has(name)){ // if the recipe doesn't use this ingredient, don't add it
@@ -50,8 +52,11 @@ export class Machine extends Renderable {
     if (availableCapacity < amount){ // if there's not enough space, fill it up and return the amount that was used
       this.buffers.set(name, MAX_BUFFER_FOR_ALL_INGREDIENTS);
       return availableCapacity;
+    } else if (this.buffers.has(name)){
+      this.buffers.set(name, this.buffers.get(name) + amount);
+      return amount;
     } else {
-      this.buffers.set(name, this.buffers.get(name)! + amount);
+      this.buffers.set(name, amount);
       return amount;
     }
   }
