@@ -34,9 +34,9 @@ const run = () => {
   makeIronGears.ingredients.set("Iron plate", 2);
   makeIronGears.outputs.set("Iron gear", 1);
 
-  const miners = Array.from({ length: 2 }, () => new Machine("Miner", mineIronOre));
-  const furnaces = Array.from({ length: 6 }, () => new Machine("Furnace", smeltIronPlates));
-  const assemblers = Array.from({ length: 4 }, () => new Machine("Assembler", makeIronGears));
+  const miners = Array.from({ length: 2 }).map((_, i: number) => new Machine("Miner", mineIronOre, 1, i + 1));
+  const furnaces = Array.from({ length: 6 }).map((_, i: number) => new Machine("Furnace", smeltIronPlates, 11, i + 1));
+  const assemblers = Array.from({ length: 4 }).map((_, i: number) => new Machine("Assembler", makeIronGears, 23, i + 1));
 
   const minerToFurnaceConnection = new Connection("Iron ore", 1);
   miners.forEach(miner => minerToFurnaceConnection.addSource(miner));
@@ -54,24 +54,25 @@ const run = () => {
     for (const furnace of furnaces){
       furnace.update(dt);
     }
-    for (const assembler of assemblers){
-      assembler.update(dt);
-    }
+    // for (const assembler of assemblers){
+    //   assembler.update(dt);
+    // }
     minerToFurnaceConnection.update(dt);
-    furnaceToAssemblerConnection.update(dt);
+    // furnaceToAssemblerConnection.update(dt);
 
     framebuffer.clear();
     framebuffer.write({viewX: 0, viewY: 0}, [["Miners:", 255, 255, 255, 0, 0, 0]] as TOKEN[]);
-    miners.forEach((miner, index) => {
-      miner.render(framebuffer, {
-        viewX: 0,
-        viewY: index + 1
-      });
-    });
+    miners.forEach((miner) => miner.render(framebuffer));
+    furnaces.forEach((furnace) => furnace.render(framebuffer));
+    // assemblers.forEach((assembler) => assembler.render(framebuffer));
     minerToFurnaceConnection.render(framebuffer, {
       viewX: 7,
       viewY: 1
     });
+    // furnaceToAssemblerConnection.render(framebuffer, {
+    //   viewX: 19,
+    //   viewY: 1
+    // });
     framebuffer.render(cursor);
   }, 1000 / 60);
 };

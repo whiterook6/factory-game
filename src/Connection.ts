@@ -1,4 +1,3 @@
-import ansi from "ansi";
 import { generateID } from "./ids";
 import { Machine } from "./Machine";
 import { Framebuffer, RGB, TOKEN, ViewXY } from "./Framebuffer";

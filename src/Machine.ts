@@ -2,10 +2,11 @@ import ansi from "ansi";
 import { generateID } from "./ids";
 import { Recipe } from "./Recipe";
 import { Framebuffer, RGB, TOKEN, ViewXY } from "./Framebuffer";
+import { Renderable } from "./Renderable";
 
 const MAX_BUFFER_FOR_ALL_INGREDIENTS = 100;
 
-export class Machine {
+export class Machine extends Renderable {
   static allMachines: Map<number, Machine> = new Map<number, Machine>();
 
   buffers: Map<string, number>;
@@ -19,7 +20,8 @@ export class Machine {
   recipeID: number;
   state: "filling" | "crafting" | "draining" | "full";
 
-  constructor(name: string, recipe: Recipe){
+  constructor(name: string, recipe: Recipe, x: number, y: number){
+    super(x, y, name.length + 2, 1);
     this.buffers = new Map<string, number>();
     this.crafting = false;
     this.craftingSpeed = Math.random() * 0.1 + 0.95;
@@ -208,7 +210,8 @@ export class Machine {
     }
   }
 
-  public render = (framebuffer: Framebuffer, viewXY: ViewXY): void => {
+  public render = (framebuffer: Framebuffer): void => {
+    const viewXY: ViewXY = { viewX: this.x, viewY: this.y };
     const fgColor: [number, number, number] = [255, 255, 255];
     const label = this.name;
     const labelLength = label.length;
