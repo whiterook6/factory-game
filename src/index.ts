@@ -22,7 +22,7 @@ const run = () => {
   // get the size of the terminal
   const terminalWidth = process.stdout.columns;
   const terminalHeight = process.stdout.rows;
-  const framebuffer = new Framebuffer({viewHeight: terminalHeight, viewWidth: terminalWidth});
+  const framebuffer = new Framebuffer(terminalWidth, terminalHeight);
 
   const source = {
     x: 10,
@@ -70,57 +70,36 @@ const run = () => {
 
     framebuffer.clear();
     // draw a box for source
-    framebuffer.write({
-      viewX: source.x,
-      viewY: source.y
-    }, [
+    framebuffer.write(source.x, source.y, [
       ["╔" + "═".repeat(source.width - 2) + "╗", 255, 255, 255, 0, 0, 0]
     ] as TOKEN[]);
     
     for (let y = source.y + 1; y < source.y + source.height - 1; y++){
-      framebuffer.write({
-        viewX: source.x,
-        viewY: y
-      }, [
+      framebuffer.write(source.x, y, [
         ["║" + " ".repeat(source.width - 2) + "║", 255, 255, 255, 0, 0, 0]
       ]);
     }
-    framebuffer.write({
-      viewX: source.x,
-      viewY: source.y + source.height - 1
-    }, [
+    framebuffer.write(source.x, source.y + source.height - 1, [
       ["╚" + "═".repeat(source.width - 2) + "╝", 255, 255, 255, 0, 0, 0],
     ] as TOKEN[]);
 
     // draw a box for destination
-    framebuffer.write({
-      viewX: destination.x,
-      viewY: destination.y
-    }, [
+    framebuffer.write(destination.x, destination.y, [
       ["╔" + "═".repeat(destination.width - 2) + "╗", 255, 255, 255, 0, 0, 0]
     ] as TOKEN[]);
     
     for (let y = destination.y + 1; y < destination.y + destination.height - 1; y++){
-      framebuffer.write({
-        viewX: destination.x,
-        viewY: y
-      }, [
+      framebuffer.write(destination.x, y, [
         ["║" + " ".repeat(destination.width - 2) + "║", 255, 255, 255, 0, 0, 0]
       ]);
     }
-    framebuffer.write({
-      viewX: destination.x,
-      viewY: destination.y + destination.height - 1
-    }, [
+    framebuffer.write(destination.x, destination.y + destination.height - 1, [
       ["╚" + "═".repeat(destination.width - 2) + "╝", 255, 255, 255, 0, 0, 0],
     ] as TOKEN[]);
 
     // draw a * for each cell in the path
     for (const cell of path){
-      framebuffer.write({
-        viewX: cell[0],
-        viewY: cell[1],
-      }, [
+      framebuffer.write(cell[0], cell[1], [
         ["*", 255, 255, 255, 0, 0, 0],
       ] as TOKEN[]);
     }

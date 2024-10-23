@@ -1,6 +1,6 @@
 import { generateID } from "./ids";
 import { Machine } from "./Machine";
-import { Framebuffer, RGB, TOKEN, ViewXY } from "./Framebuffer";
+import { Framebuffer, RGB, TOKEN } from "./Framebuffer";
 
 export class Connection {
   static allConnections: Map<number, Connection> = new Map<number, Connection>();
@@ -124,7 +124,7 @@ export class Connection {
     });
   }
 
-  public render(framebuffer: Framebuffer, viewXY: ViewXY): void {
+  public render(framebuffer: Framebuffer, x: number, y: number): void {
     const label = "-->";
     const labelLength = label.length;
     const flowIndicatorWidth = Math.round((this.lastFlow / this.maxFlowRate) * labelLength);
@@ -134,7 +134,7 @@ export class Connection {
     const fgColor: RGB = [255, 255, 255];
     const green: RGB = [0, 255, 0];
     const black: RGB = [0, 0, 0];
-    framebuffer.write(viewXY, [
+    framebuffer.write(x, y, [
       [greenLabel, ...fgColor, ...green],
       [blackLabel, ...fgColor, ...black]
     ] as TOKEN[]);

@@ -2,9 +2,6 @@ import ansi from "ansi";
 import { overwriteArray, overwriteString } from "./helpers";
 
 export type RGB = [number, number, number];
-export type ViewSize = { viewWidth: number, viewHeight: number };
-export type ViewXY = { viewX: number, viewY: number };
-
 export type TOKEN = [
   /** The text to write */
   string,
@@ -38,9 +35,13 @@ export class Framebuffer {
   private emptyFGRow: RGB[];
   private emptyBGRow: RGB[];
 
-  constructor(size: ViewSize) {
-    this.width = size.viewWidth;
-    this.height = size.viewHeight;
+  constructor(width: number, height: number) {
+    if (width < 1 || height < 1){
+      throw new Error("Framebuffer must have a width and height of at least 1");
+    }
+
+    this.width = width;
+    this.height = height;
     
     this.emptyRow = " ".repeat(this.width);
     this.emptyFGRow = Array(this.width).fill([255, 255, 255]);
@@ -82,9 +83,9 @@ export class Framebuffer {
     cursor.flush();
   };
 
-  public resize = (newSize: ViewSize) => {
-    this.width = Math.max(newSize.viewWidth, 1);
-    this.height = Math.max(newSize.viewHeight, 1);
+  public resize = (newWidth: number, newHeight: number) => {
+    this.width = Math.max(newWidth, 1);
+    this.height = Math.max(newHeight, 1);
 
     this.emptyRow = " ".repeat(this.width);
     this.buffer.length = this.height;
@@ -99,18 +100,18 @@ export class Framebuffer {
     this.bgBuffer.fill(this.emptyBGRow);
   };
 
-  public write = (viewXY: ViewXY, tokens: TOKEN[]) => {
-    const viewX = Math.floor(viewXY.viewX);
-    const viewY = Math.floor(viewXY.viewY);
+  public write = (viewX: number, viewY: number, tokens: TOKEN[]) => {
+    const floorViewX = Math.floor(viewX);
+    const flootViewY = Math.floor(viewY);
 
     // if we're outside the view, skip
     const rowCount = this.buffer.length;
-    if (viewY < 0 || viewY >= rowCount) {
+    if (flootViewY < 0 || flootViewY >= rowCount) {
       return;
     }
 
     const row = tokens.map(([text]) => text).join("");
-    if (viewX + row.length < 0 || viewX >= this.buffer[0].length) {
+    if (floorViewX + row.length < 0 || floorViewX >= this.buffer[0].length) {
       return;
     }
 
@@ -123,9 +124,9 @@ export class Framebuffer {
       return Array(text.length).fill([bgRed, bgGreen, bgBlue]);
     });
 
-    this.buffer[viewY] = overwriteString(this.buffer[viewY], row, viewX);
-    this.fgBuffer[viewY] = overwriteArray<RGB>(this.fgBuffer[viewY], fgRow, viewX);
-    this.bgBuffer[viewY] = overwriteArray<RGB>(this.bgBuffer[viewY], bgRow, viewX);
+    this.buffer[flootViewY] = overwriteString(this.buffer[flootViewY], row, floorViewX);
+    this.fgBuffer[flootViewY] = overwriteArray<RGB>(this.fgBuffer[flootViewY], fgRow, floorViewX);
+    this.bgBuffer[flootViewY] = overwriteArray<RGB>(this.bgBuffer[flootViewY], bgRow, floorViewX);
   };
 
   public getWidth = () => this.width;

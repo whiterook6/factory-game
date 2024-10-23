@@ -1,7 +1,7 @@
 import ansi from "ansi";
 import { generateID } from "./ids";
 import { Recipe } from "./Recipe";
-import { Framebuffer, RGB, TOKEN, ViewXY } from "./Framebuffer";
+import { Framebuffer, TOKEN } from "./Framebuffer";
 import { Renderable } from "./Renderable";
 
 const MAX_BUFFER_FOR_ALL_INGREDIENTS = 100;
@@ -216,13 +216,12 @@ export class Machine extends Renderable {
   }
 
   public render = (framebuffer: Framebuffer): void => {
-    const viewXY: ViewXY = { viewX: this.x, viewY: this.y };
     const fgColor: [number, number, number] = [255, 255, 255];
     const label = this.name;
     const labelLength = label.length;
     const recipe = Recipe.allRecipes.get(this.recipeID);
     if (!recipe){
-      framebuffer.write(viewXY, [[label, ...fgColor, 0, 0, 0]] as TOKEN[]);
+      framebuffer.write(this.x, this.y, [[label, ...fgColor, 0, 0, 0]] as TOKEN[]);
       return;
     }
 
@@ -238,7 +237,7 @@ export class Machine extends Renderable {
         leftLabel = label.substring(0, progressLabelWidth);
         rightLabel = label.substring(progressLabelWidth);
 
-        return framebuffer.write(viewXY, [
+        return framebuffer.write(this.x, this.y, [
           [leftLabel, ...fgColor, 0, 255, 0],
           [rightLabel, ...fgColor, 0, 0, 0]
         ] as TOKEN[]);
@@ -250,7 +249,7 @@ export class Machine extends Renderable {
         leftLabel = label.substring(0, progressLabelWidth);
         rightLabel = label.substring(progressLabelWidth);
 
-        return framebuffer.write(viewXY, [
+        return framebuffer.write(this.x, this.y, [
           [leftLabel, ...fgColor, 0, 0, 255],
           [rightLabel, ...fgColor, 0, 0, 0]
         ] as TOKEN[]);
@@ -262,12 +261,12 @@ export class Machine extends Renderable {
         leftLabel = label.substring(0, progressLabelWidth);
         rightLabel = label.substring(progressLabelWidth);
 
-        return framebuffer.write(viewXY, [
+        return framebuffer.write(this.x, this.y, [
           [leftLabel, ...fgColor, 255, 0, 0],
           [rightLabel, ...fgColor, 0, 0, 0]
         ] as TOKEN[]);
       default:
-        return framebuffer.write(viewXY, [[label, ...fgColor, 0, 0, 0]] as TOKEN[]);
+        return framebuffer.write(this.x, this.y, [[label, ...fgColor, 0, 0, 0]] as TOKEN[]);
     };
   };
 };
