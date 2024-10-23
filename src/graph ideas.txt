@@ -1,12 +1,12 @@
-Miner 0 ─┐
-Miner 1 ─┤ 
-Miner 2 ─┤ ┌→ Furnace 0 ─┐
-Miner 3 ─┤ ├→ Furnace 1 ─┤
-Miner 4 ─┼─┼→ Furnace 2 ─┼──→ Assembler 0 ────→ Chest 0
-Miner 5 ─┤ ├→ Furnace 3 ─┤
-Miner 6 ─┤ ├→ Furnace 4 ─┤
-Miner 7 ─┤ └→ Furnace 5 ─┘
-Miner 8 ─┘
+Miner 0 ╗
+Miner 1 ╣ 
+Miner 2 ╣             ╔→ Furnace 0 ╗
+Miner 3 ╣             ╠→ Furnace 1 ╣
+Miner 4 ╬═ Iron Ores ═╬→ Furnace 2 ╬═ Iron Plates ═→ Chest
+Miner 5 ╣             ╠→ Furnace 3 ╣
+Miner 6 ╣             ╠→ Furnace 4 ╣
+Miner 7 ╣             ╚→ Furnace 5 ╝
+Miner 8 ╝
 
 
 
