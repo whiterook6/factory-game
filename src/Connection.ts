@@ -1,49 +1,44 @@
-import { generateID } from "./ids";
+import { RGB, XY } from "@whiterook6/terminal-engine/src/Types";
 import { Machine } from "./Machine";
-import { Framebuffer, RGB, TOKEN } from "./Framebuffer";
+import { Framebuffer } from "@whiterook6/terminal-engine";
+import { TOKEN } from "@whiterook6/terminal-engine/src/Framebuffer";
 
 export class Connection {
-  static allConnections: Map<number, Connection> = new Map<number, Connection>();
-  id: number;
+  position: XY
   ingredientName: string;
 
   /**
    * units per second
    */
   maxFlowRate: number;
-  sourceMachineIDs: number[] = [];
-  destinationMachineIDs: number[] = [];
+  sources: Machine[] = [];
+  destinations: Machine[] = [];
   lastFlow: number = 0;
 
-  constructor(ingredientName: string, maxFlowRate: number = 1){
-    this.id = generateID();
+  constructor(ingredientName: string, maxFlowRate: number = 1, position: XY){
+    this.position = position;
     this.ingredientName = ingredientName;
     this.maxFlowRate = maxFlowRate;
-    Connection.allConnections.set(this.id, this);
   }
 
   public addSource = (machine: Machine): void => {
-    const machineID = machine.id;
-    if (!this.sourceMachineIDs.includes(machineID)){
-      this.sourceMachineIDs.push(machineID);
+    if (!this.sources.includes(machine)){
+      this.sources.push(machine);
     }
   }
 
   public removeSource = (machine: Machine): void => {
-    const machineID = machine.id;
-    this.sourceMachineIDs = this.sourceMachineIDs.filter(id => id !== machineID);
+    this.sources = this.sources.filter(source => source !== machine);
   }
 
   public addDestination = (machine: Machine): void => {
-    const machineID = machine.id;
-    if (!this.destinationMachineIDs.includes(machineID)){
-      this.destinationMachineIDs.push(machineID);
+    if (!this.destinations.includes(machine)){
+      this.destinations.push(machine);
     }
   }
 
   public removeDestination = (machine: Machine): void => {
-    const machineID = machine.id;
-    this.destinationMachineIDs = this.destinationMachineIDs.filter(id => id !== machineID);
+    this.destinations = this.destinations.filter(destination => destination !== machine);
   }
 
   /**
@@ -53,12 +48,11 @@ export class Connection {
    */
   public update(dt: number): void {
     this.lastFlow = 0;
-    if (this.sourceMachineIDs.length === 0 || this.destinationMachineIDs.length === 0){
+    if (this.sources.length === 0 || this.destinations.length === 0){
       return;
     }
 
-    const availableOutputByMachine = this.sourceMachineIDs.map(id => {
-      const sourceMachine = Machine.allMachines.get(id)!;
+    const availableOutputByMachine = this.sources.map(sourceMachine => {
       const availableOutput = sourceMachine.getAvailableOutput(this.ingredientName);
       return [sourceMachine, availableOutput] as [Machine, number];
     })
@@ -69,8 +63,7 @@ export class Connection {
     }
     const totalAvailableOutput = availableOutputByMachine.reduce((acc, [_, availableOutput]) => acc + availableOutput, 0);
 
-    const availableCapacityByMachine = this.destinationMachineIDs.map(id => {
-      const destinationMachine = Machine.allMachines.get(id)!;
+    const availableCapacityByMachine = this.destinations.map(destinationMachine => {
       const availableCapacity = destinationMachine.getAvailableInputCapacity(this.ingredientName);
       return [destinationMachine, availableCapacity] as [Machine, number];
     })
@@ -95,14 +88,14 @@ export class Connection {
     let averageTransferAmount = remainingCapacity / availableOutputByMachine.length;
     availableOutputByMachine.forEach(([machine, availableOutput], index) => {
       if (availableOutput < averageTransferAmount){
-        machine.consumeAllOutput(this.ingredientName);
+        machine.drainAllOutput(this.ingredientName);
         remainingCapacity -= availableOutput;
         const remainingMachines = availableOutputByMachine.length - index - 1;
         if (remainingMachines > 0){
           averageTransferAmount = remainingCapacity / remainingMachines;
         }
       } else {
-        machine.consumeOutput(this.ingredientName, averageTransferAmount);
+        machine.drainOutput(this.ingredientName, averageTransferAmount);
       }
     });
     
@@ -124,7 +117,7 @@ export class Connection {
     });
   }
 
-  public render(framebuffer: Framebuffer, x: number, y: number): void {
+  public renderTo(framebuffer: Framebuffer): void {
     const label = "-->";
     const labelLength = label.length;
     const flowIndicatorWidth = Math.round((this.lastFlow / this.maxFlowRate) * labelLength);
@@ -134,7 +127,7 @@ export class Connection {
     const fgColor: RGB = [255, 255, 255];
     const green: RGB = [0, 255, 0];
     const black: RGB = [0, 0, 0];
-    framebuffer.write(x, y, [
+    framebuffer.write(this.position[0], this.position[1], [
       [greenLabel, ...fgColor, ...green],
       [blackLabel, ...fgColor, ...black]
     ] as TOKEN[]);

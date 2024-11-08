@@ -1,4 +1,4 @@
-import { Framebuffer } from "./Framebuffer";
+import { Framebuffer } from "@whiterook6/terminal-engine";
 
 export type Cell = [number, number];
 
@@ -167,7 +167,7 @@ export class TestPipe {
     Heading.FORWARD,
   ];
   
-  render(framebuffer: Framebuffer){
+  renderTo(framebuffer: Framebuffer){
     if (this.testPipe.length < 4){
       framebuffer.write(this.testPipe[0], this.testPipe[1], [
         [getPipeSegment(this.testPipe[2] /* direction */, Heading.FORWARD), 255, 255, 255, 0, 0, 0]            

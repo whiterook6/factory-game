@@ -1,272 +1,310 @@
-import ansi from "ansi";
+import { Framebuffer, Types } from "@whiterook6/terminal-engine";
+import { TOKEN } from "@whiterook6/terminal-engine/src/Framebuffer";
 import { generateID } from "./ids";
 import { Recipe } from "./Recipe";
-import { Framebuffer, TOKEN } from "./Framebuffer";
-import { Renderable } from "./Renderable";
 
 const MAX_BUFFER_FOR_ALL_INGREDIENTS = 100;
+export enum MachineState {
+  crafting,
+  draining,
+  filling,
+  blocked,
+  empty,
+}
 
-export class Machine extends Renderable {
-  static allMachines: Map<number, Machine> = new Map<number, Machine>();
-
-  buffers: Map<string, number>;
+export class Machine {
+  position: Types.XY;
+  inputBuffers: Map<string, number>;
   crafting: boolean;
   craftingSpeed: number;
   crafts: number;
   id: number;
   name: string;
-  outputs: Map<string, number>;
+  outputBuffers: Map<string, number>;
   progress: number;
-  recipeID: number;
-  state: "crafting" // is crafting
-    | "draining" // has output
-    | "filling"; // has input
+  recipe: Recipe;
 
   constructor(name: string, recipe: Recipe, x: number, y: number){
-    super(x, y, name.length + 2, 1);
-    this.buffers = new Map<string, number>();
+    this.position = [x, y];
+    this.inputBuffers = new Map<string, number>();
     this.crafting = false;
     this.craftingSpeed = Math.random() * 0.1 + 0.95;
     this.crafts = 0;
     this.id = generateID();
     this.name = name;
-    this.outputs = new Map<string, number>();
+    this.outputBuffers = new Map<string, number>();
     this.progress = 0;
-    this.recipeID = recipe.id;
-    this.state = "filling";
-    Machine.allMachines.set(this.id, this);
+    this.recipe = recipe;
   }
 
   /** 
-   * @returns how much was used up
+   * @returns how much was used up. If you give it 100 units and there was only 20 room, this returns 20.
    */
   public addInput = (name: string, amount: number): number => {
-    const recipe = Recipe.allRecipes.get(this.recipeID);
-    if (!recipe){ // if there's no recipe, don't add anything
-      return 0;
-    } else if (!recipe.ingredients.has(name)){ // if the recipe doesn't use this ingredient, don't add it
-      return 0;
-    }
-
     const availableCapacity = this.getAvailableInputCapacity(name);
-    if (availableCapacity < amount){ // if there's not enough space, fill it up and return the amount that was used
-      this.buffers.set(name, MAX_BUFFER_FOR_ALL_INGREDIENTS);
+
+    // if there's not enough space, fill it up and return the amount that was used
+    if (availableCapacity < amount){
+      this.inputBuffers.set(name, MAX_BUFFER_FOR_ALL_INGREDIENTS);
       return availableCapacity;
-    } else if (this.buffers.has(name)){
-      this.buffers.set(name, this.buffers.get(name) + amount);
+
+    // if there's already some, but there's still room for more
+    } else if (this.inputBuffers.has(name)){
+      this.inputBuffers.set(name, this.inputBuffers.get(name) + amount);
       return amount;
+    
+    // if there's none yet
     } else {
-      this.buffers.set(name, amount);
+      this.inputBuffers.set(name, amount);
       return amount;
     }
   }
 
   /**
-   * @returns how much was used up
+   * @returns how much was filled, if any
    */
   public fillInput = (name: string): number => {
     const capacity = this.getAvailableInputCapacity(name);
-    this.buffers.set(name, MAX_BUFFER_FOR_ALL_INGREDIENTS);
+    this.inputBuffers.set(name, MAX_BUFFER_FOR_ALL_INGREDIENTS);
     return capacity;
   }
 
-  public addOutput = (name: string, amount: number): void => {
-    if (this.outputs.has(name)){
-      this.outputs.set(name, this.outputs.get(name)! + amount);
+  /**
+   * @returns how much was consumed, if any
+   */
+  public consumeInput = (name: string, amount: number): number => {
+    const availableInput = this.getAvailableInput(name);
+    if (availableInput >= amount){
+      this.inputBuffers.set(name, availableInput - amount);
+      return amount;
     } else {
-      this.outputs.set(name, amount);
+      this.inputBuffers.delete(name);
+      return availableInput;
     }
   }
 
-  public consumeOutput = (name: string, amount: number): number => {
-    if (this.outputs.has(name)){
-      const output = this.outputs.get(name)!;
-      if (output >= amount){
-        this.outputs.set(name, output - amount);
-        return amount;
-      } else {
-        this.outputs.delete(name);
-        return output;
-      }
+  /**
+   * @returns how much output was added, if any
+   */
+  public addOutput = (name: string, maxAmount: number): number => {
+    const capacity = Math.max(0, MAX_BUFFER_FOR_ALL_INGREDIENTS - this.getAvailableOutput(name));
+
+    // if there's still room to add to this output, add it all and return the same amount
+    if (capacity > maxAmount){
+      this.outputBuffers.set(name, this.outputBuffers.get(name)! + maxAmount);
+      return maxAmount;
+    
+    // if there's no enough room to add all of it, add as much as possible and return that amount
     } else {
-      return 0;
+      this.outputBuffers.set(name, MAX_BUFFER_FOR_ALL_INGREDIENTS);
+      return capacity;
     }
   }
 
-  public consumeAllOutput = (name: string): number => {
-    if (this.outputs.has(name)){
-      const output = this.outputs.get(name)!;
-      this.outputs.delete(name);
+  /**
+   * Take output from the machine, up to a certain amount.
+   * @returns how much was consumed, if any
+   */
+  public drainOutput = (name: string, maxAmount: number): number => {
+    const availableOutput = this.getAvailableOutput(name);
+    if (availableOutput >= maxAmount){
+      this.outputBuffers.set(name, availableOutput - maxAmount);
+      return maxAmount;
+    } else {
+      this.outputBuffers.delete(name);
+      return availableOutput;
+    }
+  }
+
+  /**
+   * @returns how much was drained, if any
+   */
+  public drainAllOutput = (name: string): number => {
+    if (this.outputBuffers.has(name)){
+      const output = this.outputBuffers.get(name)!;
+      this.outputBuffers.delete(name);
       return output;
     } else {
       return 0;
     }
   }
 
+  /**
+   * @returns how much room there is to add input, given the current amount
+   */
   public getAvailableInputCapacity = (name: string): number => {
-    const recipe = Recipe.allRecipes.get(this.recipeID);
-    if (!recipe){
-      return 0;
-    } else if (!recipe.ingredients.has(name)){
-      return 0;
-    } else if (this.buffers.has(name)){
-      if (this.buffers.get(name)! >= MAX_BUFFER_FOR_ALL_INGREDIENTS){
-        return 0;
-      } else {
-        return MAX_BUFFER_FOR_ALL_INGREDIENTS - this.buffers.get(name)!;
-      }
-    } else {
-      return MAX_BUFFER_FOR_ALL_INGREDIENTS;
-    }
-  }
-
-  public getAvailableInput = (name: string): number => {
-    if (this.buffers.has(name)){
-      return this.buffers.get(name)!;
-    } else {
+    if (!this.recipe.ingredients.has(name)){
       return 0;
     }
-  }
-
-  public getAvailableOutput = (name: string): number => {
-    if (this.outputs.has(name)){
-      return this.outputs.get(name)!;
+    
+    const currentAmount = this.getAvailableInput(name);
+    if (currentAmount < MAX_BUFFER_FOR_ALL_INGREDIENTS){
+      return MAX_BUFFER_FOR_ALL_INGREDIENTS - currentAmount;
     } else {
       return 0;
     }
   }
 
   /**
-   * @returns percentage complete of crafting, between 0 and 1.
+   * @returns how much of an ingredient is available for crafting
+   */
+  public getAvailableInput = (name: string): number => {
+    if (this.inputBuffers.has(name)){
+      return this.inputBuffers.get(name)!;
+    } else {
+      return 0;
+    }
+  }
+
+  /**
+   * @returns how much output is sitting waiting to be drained
+   */
+  public getAvailableOutput = (name: string): number => {
+    if (this.outputBuffers.has(name)){
+      return this.outputBuffers.get(name)!;
+    } else {
+      return 0;
+    }
+  }
+
+  /**
+   * @returns "percentage" complete of crafting, between 0 and 1.
    */
   public getCraftingProgress = (): number => {
-    if (!this.crafting){
+    if (!this.crafting || this.craftingSpeed === 0 || this.recipe.craftTime === 0){
       return 0;
     }
 
-    const recipe = Recipe.allRecipes.get(this.recipeID)!;
-    if (!recipe){
-      return 0;
-    }
-
-    return this.progress / (recipe.craftTime * this.craftingSpeed);
+    return this.progress / (this.recipe.craftTime * this.craftingSpeed);
   }
 
   public canCraft = (): boolean => {
     if (this.crafting){
       return false;
     }
-
-    const recipe = Recipe.allRecipes.get(this.recipeID)!;
-    if (!recipe){
-      return false;
-    }
     
-    if (recipe.ingredients.size === 0){
+    if (this.recipe.ingredients.size === 0){
       return true;
     }
 
-    let hasIngredients = true;
-    for (const [ingredientName, ingredientAmount] of recipe.ingredients.entries()){
-      if ((this.buffers.get(ingredientName) || 0) < ingredientAmount){
-        hasIngredients = false;
-        break;
+    // if any of the required ingredients is in short supply, return false
+    for (const [ingredientName, requiredAmount] of this.recipe.ingredients.entries()){
+      const availableAmount = this.getAvailableInput(ingredientName);
+      if (availableAmount < requiredAmount){
+        return false;
       }
     }
 
-    return hasIngredients;
+    return true;
   }
 
   public startCrafting = (): void => {
     this.crafting = true;
     this.progress = 0;
-    const recipe = Recipe.allRecipes.get(this.recipeID)!;
-    recipe.ingredients.forEach((amount, id) => {
-      this.buffers.set(id, this.buffers.get(id)! - amount);
+    this.recipe.ingredients.forEach((amount, id) => {
+      this.consumeInput(id, amount);
     });
   }
 
-  public update = (dt: number): void => {
-    if (!this.crafting){
-      if (this.canCraft()){
-        this.startCrafting();
-      }
+  public update = (deltaTimeMS: number): void => {
+    if (!this.crafting && this.canCraft()){
+      this.startCrafting();
     }
     
-    const recipe = Recipe.allRecipes.get(this.recipeID)!;
     if (this.crafting){
-      this.progress += dt;
+      this.progress += deltaTimeMS / 1000;
 
-      if (this.progress >= recipe.craftTime * this.craftingSpeed){
+      // TODO: pause at the end in case there's no room for output
+      if (this.progress >= this.recipe.craftTime * this.craftingSpeed){
         this.progress = 0;
         this.crafts++;
         this.crafting = false;
-        recipe.outputs.forEach((amount, id) => {
+        this.recipe.outputs.forEach((amount, id) => {
           this.addOutput(id, amount);
         });
-        this.state = "draining";
-      } else {
-        this.state = "crafting";
       }
-    } else if ([...this.outputs.values()].some(amount => amount > 0)){
-      this.state = "draining";
-    } else {
-      this.state = "filling";
     }
   }
 
-  public render = (framebuffer: Framebuffer): void => {
+  public renderTo = (framebuffer: Framebuffer): void => {
     const fgColor: [number, number, number] = [255, 255, 255];
     const label = this.name;
     const labelLength = label.length;
-    const recipe = Recipe.allRecipes.get(this.recipeID);
-    if (!recipe){
-      framebuffer.write(this.x, this.y, [[label, ...fgColor, 0, 0, 0]] as TOKEN[]);
-      return;
-    }
 
     let progress: number;
     let progressLabelWidth: number;
     let leftLabel: string;
     let rightLabel: string;
 
-    switch (this.state){
+    switch (this.getState()){
       case "crafting": // green background
         progress = this.getCraftingProgress();
         progressLabelWidth = Math.round(labelLength * progress);
         leftLabel = label.substring(0, progressLabelWidth);
         rightLabel = label.substring(progressLabelWidth);
 
-        return framebuffer.write(this.x, this.y, [
+        return framebuffer.write(this.position[0], this.position[1], [
           [leftLabel, ...fgColor, 0, 255, 0],
           [rightLabel, ...fgColor, 0, 0, 0]
         ] as TOKEN[]);
       case "filling": // blue background
-        const bufferSize = [...this.buffers.values()].reduce((acc, val) => acc + val, 0);
-        const ingredientTotal = [...recipe.ingredients.values()].reduce((acc, val) => acc + val, 0);
+        const bufferSize = [...this.inputBuffers.values()].reduce((acc, val) => acc + val, 0);
+        const ingredientTotal = [...this.recipe.ingredients.values()].reduce((acc, val) => acc + val, 0);
         progress = bufferSize / ingredientTotal;
         progressLabelWidth = Math.round(labelLength * progress);
         leftLabel = label.substring(0, progressLabelWidth);
         rightLabel = label.substring(progressLabelWidth);
 
-        return framebuffer.write(this.x, this.y, [
+        return framebuffer.write(this.position[0], this.position[1], [
           [leftLabel, ...fgColor, 0, 0, 255],
           [rightLabel, ...fgColor, 0, 0, 0]
         ] as TOKEN[]);
       case "draining": // red background
-        const outputSize = [...this.outputs.values()].reduce((acc, val) => acc + val, 0);
-        const outputTotal = [...recipe.outputs.values()].reduce((acc, val) => acc + val, 0);
+        const outputSize = [...this.outputBuffers.values()].reduce((acc, val) => acc + val, 0);
+        const outputTotal = [...this.recipe.outputs.values()].reduce((acc, val) => acc + val, 0);
         progress = outputSize / outputTotal;
         progressLabelWidth = Math.round(labelLength * progress);
         leftLabel = label.substring(0, progressLabelWidth);
         rightLabel = label.substring(progressLabelWidth);
 
-        return framebuffer.write(this.x, this.y, [
+        return framebuffer.write(this.position[0], this.position[1], [
           [leftLabel, ...fgColor, 255, 0, 0],
           [rightLabel, ...fgColor, 0, 0, 0]
         ] as TOKEN[]);
       default:
-        return framebuffer.write(this.x, this.y, [[label, ...fgColor, 0, 0, 0]] as TOKEN[]);
+        return framebuffer.write(this.position[0], this.position[1], [[label, ...fgColor, 0, 0, 0]] as TOKEN[]);
     };
   };
+
+  private getState = (): string => {
+    if (this.crafting){
+      return "crafting";
+    }
+
+    const outputKeys = [...this.outputBuffers.keys()];
+    const isOutputFull = outputKeys.every(outputName => {
+      return this.outputBuffers.get(outputName)! >= MAX_BUFFER_FOR_ALL_INGREDIENTS;
+    });
+    if (isOutputFull){
+      return "blocked";
+    }
+
+    const isOutputDraining = outputKeys.some(outputName => {
+      return this.outputBuffers.get(outputName)! > 0;
+    });
+    if (isOutputDraining){
+      return "draining";
+    }
+
+    const inputKeys = [...this.inputBuffers.keys()];
+    const hasInputs = inputKeys.some(inputName => {
+      return this.inputBuffers.get(inputName)! > 0;
+    });
+
+    if (hasInputs){
+      return "filling";
+    }
+
+    return "empty";
+  }
 };

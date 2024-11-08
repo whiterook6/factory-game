@@ -7,9 +7,10 @@ Miner 5 ╣             ╠→ Furnace 3 ╣
 Miner 6 ╣             ╠→ Furnace 4 ╣
 Miner 7 ╣             ╚→ Furnace 5 ╝
 Miner 8 ╝
-
-
-
+     ─┐   
+──────│→
+      └→
+      
 Miner ─┬→
        ├→
        ├→
